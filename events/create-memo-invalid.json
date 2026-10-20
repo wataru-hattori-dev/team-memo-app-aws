@@ -1,0 +1,13 @@
+{
+  "resource": "/memos",
+  "path": "/memos",
+  "httpMethod": "POST",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"body\":\"本文のみ\",\"author\":\"yamada\"}",
+  "isBase64Encoded": false,
+  "requestContext": {
+    "stage": "local"
+  }
+}

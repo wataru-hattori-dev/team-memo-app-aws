@@ -1,0 +1,13 @@
+{
+  "resource": "/memos",
+  "path": "/memos",
+  "httpMethod": "GET",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "body": null,
+  "isBase64Encoded": false,
+  "requestContext": {
+    "stage": "local"
+  }
+}

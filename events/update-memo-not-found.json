@@ -1,0 +1,16 @@
+{
+  "resource": "/memos/{memoId}",
+  "path": "/memos/ffffffff-ffff-ffff-ffff-ffffffffffff",
+  "httpMethod": "PUT",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "pathParameters": {
+    "memoId": "ffffffff-ffff-ffff-ffff-ffffffffffff"
+  },
+  "body": "{\"title\":\"更新後タイトル\",\"body\":\"更新後本文\",\"author\":\"yamada\",\"tags\":[\"sprint\"]}",
+  "isBase64Encoded": false,
+  "requestContext": {
+    "stage": "local"
+  }
+}

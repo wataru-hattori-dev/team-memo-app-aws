@@ -1,0 +1,137 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  team-memo-app-aws — チーム共有メモアプリ (API Gateway + Lambda Python 3.11 + DynamoDB).
+  ローカル開発は sam local start-api と DynamoDB Local を前提とする。
+
+Parameters:
+  StageName:
+    Type: String
+    Default: local
+    Description: API Gateway ステージ名（ローカル検証時は local を想定）
+    AllowedValues:
+      - local
+      - dev
+      - prod
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Architectures:
+      - x86_64
+    Timeout: 15
+    MemorySize: 256
+    Tracing: Active
+    # ローカル: sam local の --env-vars で DYNAMODB_ENDPOINT_URL を付与（例: http://host.docker.internal:8000）
+    Environment:
+      Variables:
+        MEMOS_TABLE_NAME: !Ref MemosTable
+        STAGE_NAME: !Ref StageName
+        # ローカルのみ env.json で上書き（実 AWS では未設定のまま = 既定エンドポイント）
+        DYNAMODB_ENDPOINT_URL: ""
+  Api:
+    # フロントエンド (Vite: http://localhost:5173 等) からの呼び出しを許可
+    Cors:
+      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+      AllowOrigin: "'*'"
+      MaxAge: "'600'"
+
+Resources:
+  ##########################################################################
+  # DynamoDB — メモ本体
+  ##########################################################################
+  MemosTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "team-memo-app-memos-${StageName}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: memoId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: memoId
+          KeyType: HASH
+      Tags:
+        - Key: Application
+          Value: team-memo-app-aws
+        - Key: Stage
+          Value: !Ref StageName
+
+  ##########################################################################
+  # Lambda — メモ CRUD（単一関数 + API イベント）
+  ##########################################################################
+  MemosFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "team-memo-app-memos-${StageName}"
+      CodeUri: src/memos/
+      Handler: app.lambda_handler
+      Description: メモの作成・一覧・更新・削除 API
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MemosTable
+      Events:
+        # POST /memos — 新規作成
+        CreateMemo:
+          Type: Api
+          Properties:
+            Path: /memos
+            Method: POST
+            RestApiId: !Ref MemosApi
+        # GET /memos — 一覧取得
+        ListMemos:
+          Type: Api
+          Properties:
+            Path: /memos
+            Method: GET
+            RestApiId: !Ref MemosApi
+        # PUT /memos/{memoId} — 更新
+        UpdateMemo:
+          Type: Api
+          Properties:
+            Path: /memos/{memoId}
+            Method: PUT
+            RestApiId: !Ref MemosApi
+        # DELETE /memos/{memoId} — 削除
+        DeleteMemo:
+          Type: Api
+          Properties:
+            Path: /memos/{memoId}
+            Method: DELETE
+            RestApiId: !Ref MemosApi
+
+  ##########################################################################
+  # API Gateway — REST API（明示定義で CORS / Stage を制御）
+  ##########################################################################
+  MemosApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub "team-memo-app-api-${StageName}"
+      StageName: !Ref StageName
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+        MaxAge: "'600'"
+
+Outputs:
+  MemosApiUrl:
+    Description: メモ API のベース URL（末尾に /memos を付与して利用）
+    Value: !Sub "https://${MemosApi}.execute-api.${AWS::Region}.amazonaws.com/${StageName}"
+
+  MemosApiId:
+    Description: API Gateway REST API ID
+    Value: !Ref MemosApi
+
+  MemosTableName:
+    Description: DynamoDB テーブル名（MemosTable）
+    Value: !Ref MemosTable
+
+  MemosFunctionArn:
+    Description: メモ CRUD Lambda の ARN
+    Value: !GetAtt MemosFunction.Arn
+
+  LocalDevHint:
+    Description: ローカル開発時の起動ヒント（デプロイ成果物ではない）
+    Value: "Use DynamoDB Local + sam local start-api. Do not deploy until local E2E passes."
