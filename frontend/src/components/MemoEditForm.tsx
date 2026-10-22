@@ -3,13 +3,6 @@ import { toUserErrorMessage } from '../api/client'
 import { updateMemo } from '../api/memos'
 import type { Memo } from '../types/memo'
 
-function parseTags(raw: string): string[] {
-  return raw
-    .split(/[,、]/)
-    .map((t) => t.trim())
-    .filter((t) => t.length > 0)
-}
-
 type MemoEditFormProps = {
   memo: Memo
   onSuccess: (memo: Memo) => void
@@ -20,7 +13,6 @@ export function MemoEditForm({ memo, onSuccess, onCancel }: MemoEditFormProps) {
   const [title, setTitle] = useState(memo.title)
   const [body, setBody] = useState(memo.body)
   const [author, setAuthor] = useState(memo.author)
-  const [tagsInput, setTagsInput] = useState(memo.tags.join(', '))
   const [submitting, setSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -34,7 +26,6 @@ export function MemoEditForm({ memo, onSuccess, onCancel }: MemoEditFormProps) {
         title,
         body,
         author,
-        tags: parseTags(tagsInput),
       })
       onSuccess(updated)
     } catch (err) {
@@ -46,6 +37,15 @@ export function MemoEditForm({ memo, onSuccess, onCancel }: MemoEditFormProps) {
 
   return (
     <div className="mx-auto w-full max-w-xl">
+      {errorMessage && (
+        <div
+          role="alert"
+          className="mb-5 whitespace-pre-line rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800"
+        >
+          {errorMessage}
+        </div>
+      )}
+
       <form
         onSubmit={handleSubmit}
         className="flex flex-col gap-5"
@@ -93,21 +93,6 @@ export function MemoEditForm({ memo, onSuccess, onCancel }: MemoEditFormProps) {
           />
         </label>
 
-        <label className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-stone-700">
-            タグ（任意・カンマ区切り）
-          </span>
-          <input
-            type="text"
-            name="tags"
-            value={tagsInput}
-            onChange={(e) => setTagsInput(e.target.value)}
-            disabled={submitting}
-            className="rounded border border-stone-300 bg-white px-3 py-2 text-stone-900 outline-none focus:border-teal-600 focus:ring-1 focus:ring-teal-600"
-            placeholder="例: sprint, shared"
-          />
-        </label>
-
         <div className="flex flex-wrap gap-3">
           <button
             type="submit"
@@ -126,15 +111,6 @@ export function MemoEditForm({ memo, onSuccess, onCancel }: MemoEditFormProps) {
           </button>
         </div>
       </form>
-
-      {errorMessage && (
-        <div
-          role="alert"
-          className="mt-6 rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800"
-        >
-          {errorMessage}
-        </div>
-      )}
     </div>
   )
 }

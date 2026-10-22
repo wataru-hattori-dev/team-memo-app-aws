@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { toUserErrorMessage } from '../api/client'
-import { listMemos } from '../api/memos'
+import { deleteMemo, listMemos } from '../api/memos'
 import type { Memo } from '../types/memo'
 
 type MemoListProps = {
@@ -40,6 +40,9 @@ export function MemoList({
   const [memos, setMemos] = useState<Memo[]>([])
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [confirmMemo, setConfirmMemo] = useState<Memo | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -71,6 +74,37 @@ export function MemoList({
     }
   }, [refreshKey])
 
+  function requestDelete(memo: Memo) {
+    setDeleteError(null)
+    setConfirmMemo(memo)
+  }
+
+  function cancelDelete() {
+    if (deleting) {
+      return
+    }
+    setConfirmMemo(null)
+  }
+
+  async function confirmDelete() {
+    if (!confirmMemo || deleting) {
+      return
+    }
+    const targetId = confirmMemo.memoId
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteMemo(targetId)
+      setMemos((current) => current.filter((memo) => memo.memoId !== targetId))
+      setConfirmMemo(null)
+    } catch (err) {
+      setDeleteError(toUserErrorMessage(err))
+      setConfirmMemo(null)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-xl">
       <div className="mb-6 flex items-center justify-between gap-3">
@@ -96,6 +130,15 @@ export function MemoList({
           className="rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800"
         >
           {errorMessage}
+        </div>
+      )}
+
+      {!loading && deleteError && (
+        <div
+          role="alert"
+          className="mb-4 rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800"
+        >
+          {deleteError}
         </div>
       )}
 
@@ -147,13 +190,45 @@ export function MemoList({
                 </button>
                 <button
                   type="button"
-                  disabled
-                  title="Phase 4 で実装"
-                  className="rounded border border-stone-300 px-2.5 py-1 text-xs text-stone-400"
+                  onClick={() => requestDelete(memo)}
+                  disabled={deleting}
+                  className="rounded border border-red-300 px-2.5 py-1 text-xs text-red-800 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   削除
                 </button>
               </div>
+              {confirmMemo?.memoId === memo.memoId && (
+                <div
+                  role="dialog"
+                  aria-labelledby={`list-delete-confirm-${memo.memoId}`}
+                  className="mt-3 rounded border border-stone-300 bg-stone-50 px-4 py-4"
+                >
+                  <p
+                    id={`list-delete-confirm-${memo.memoId}`}
+                    className="text-sm text-stone-800"
+                  >
+                    「{memo.title}」を削除しますか？
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void confirmDelete()}
+                      disabled={deleting}
+                      className="rounded bg-red-700 px-3 py-2 text-sm font-medium text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {deleting ? '削除中…' : '削除する'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelDelete}
+                      disabled={deleting}
+                      className="rounded border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      キャンセル
+                    </button>
+                  </div>
+                </div>
+              )}
             </li>
           ))}
         </ul>

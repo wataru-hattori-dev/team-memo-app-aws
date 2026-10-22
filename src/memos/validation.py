@@ -38,57 +38,43 @@ def parse_json_body(raw_body: str | None) -> dict[str, Any]:
     return data
 
 
-def _require_trimmed_string(
+def _check_trimmed_string(
     data: dict[str, Any],
     field: str,
     *,
     min_len: int,
     max_len: int,
-) -> str:
+) -> tuple[str | None, str | None]:
+    """正規化済み文字列とエラーメッセージのいずれか一方を返す。"""
     label = _field_label(field)
     if field not in data or data[field] is None:
-        raise ValidationError(f"{label}を入力してください。")
+        return None, f"{label}を入力してください。"
     value = data[field]
     if not isinstance(value, str):
-        raise ValidationError(f"{label}の形式が正しくありません。")
+        return None, f"{label}の形式が正しくありません。"
     trimmed = value.strip()
     if len(trimmed) < min_len:
-        raise ValidationError(f"{label}を入力してください。")
+        return None, f"{label}を入力してください。"
     if len(trimmed) > max_len:
-        raise ValidationError(f"{label}は{max_len}文字以内で入力してください。")
-    return trimmed
-
-
-def _validate_tags(data: dict[str, Any]) -> list[str]:
-    if "tags" not in data or data["tags"] is None:
-        return []
-    tags = data["tags"]
-    if not isinstance(tags, list):
-        raise ValidationError("タグの形式が正しくありません。")
-    if len(tags) > 20:
-        raise ValidationError("タグは20個以内にしてください。")
-    normalized: list[str] = []
-    for i, tag in enumerate(tags):
-        if not isinstance(tag, str):
-            raise ValidationError("タグの形式が正しくありません。")
-        trimmed = tag.strip()
-        if trimmed == "":
-            raise ValidationError("空のタグは使えません。")
-        if len(trimmed) > 50:
-            raise ValidationError("タグは50文字以内にしてください。")
-        normalized.append(trimmed)
-    return normalized
+        return None, f"{label}は{max_len}文字以内で入力してください。"
+    return trimmed, None
 
 
 def validate_create_memo_body(data: dict[str, Any]) -> dict[str, Any]:
-    """POST /memos Body を検証し、正規化済みフィールドを返す。"""
-    title = _require_trimmed_string(data, "title", min_len=1, max_len=200)
-    body = _require_trimmed_string(data, "body", min_len=1, max_len=10000)
-    author = _require_trimmed_string(data, "author", min_len=1, max_len=100)
-    tags = _validate_tags(data)
+    """POST /memos Body を検証し、正規化済みフィールドを返す。
+
+    複数フィールドの誤りは改行区切りでまとめて ValidationError にする。
+    """
+    title, title_err = _check_trimmed_string(data, "title", min_len=1, max_len=200)
+    body, body_err = _check_trimmed_string(data, "body", min_len=1, max_len=10000)
+    author, author_err = _check_trimmed_string(data, "author", min_len=1, max_len=100)
+
+    errors = [err for err in (title_err, body_err, author_err) if err is not None]
+    if errors:
+        raise ValidationError("\n".join(errors))
+
     return {
         "title": title,
         "body": body,
         "author": author,
-        "tags": tags,
     }

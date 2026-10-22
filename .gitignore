@@ -12,7 +12,6 @@ venv/
 
 # SAM / AWS
 .aws-sam/
-samconfig.toml
 
 # Node / Vite
 node_modules/

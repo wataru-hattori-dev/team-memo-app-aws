@@ -1,0 +1,16 @@
+{
+  "resource": "/memos/{memoId}",
+  "path": "/memos/ffffffff-ffff-ffff-ffff-ffffffffffff",
+  "httpMethod": "DELETE",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "pathParameters": {
+    "memoId": "ffffffff-ffff-ffff-ffff-ffffffffffff"
+  },
+  "body": null,
+  "isBase64Encoded": false,
+  "requestContext": {
+    "stage": "local"
+  }
+}

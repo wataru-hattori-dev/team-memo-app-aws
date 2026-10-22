@@ -80,6 +80,7 @@ function App() {
             memo={view.memo}
             onEditClick={() => setView({ kind: 'edit', memo: view.memo })}
             onBackClick={() => goToList(false)}
+            onDeleted={() => goToList(true)}
           />
         )}
 

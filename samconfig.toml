@@ -1,0 +1,10 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "team-memo-app-dev"
+resolve_s3 = true
+s3_prefix = "team-memo-app-dev"
+region = "ap-northeast-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "StageName=dev"

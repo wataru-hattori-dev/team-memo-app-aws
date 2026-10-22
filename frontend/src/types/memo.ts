@@ -4,7 +4,6 @@ export type Memo = {
   title: string
   body: string
   author: string
-  tags: string[]
   createdAt: string
   updatedAt: string
 }
@@ -14,7 +13,6 @@ export type CreateMemoRequest = {
   title: string
   body: string
   author: string
-  tags?: string[]
 }
 
 /** PUT /memos/{memoId} リクエスト Body（全置換） */
@@ -22,7 +20,6 @@ export type UpdateMemoRequest = {
   title: string
   body: string
   author: string
-  tags?: string[]
 }
 
 /** API エラー応答 `{ "message": "..." }` */

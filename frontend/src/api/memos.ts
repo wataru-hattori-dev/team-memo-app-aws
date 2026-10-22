@@ -26,3 +26,10 @@ export function updateMemo(
     body: payload,
   })
 }
+
+/** DELETE /memos/{memoId} — 成功は 204（ボディなし）。JSON は読まない */
+export function deleteMemo(memoId: string): Promise<null> {
+  return apiRequest<null>(`/memos/${encodeURIComponent(memoId)}`, {
+    method: 'DELETE',
+  })
+}

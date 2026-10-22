@@ -13,6 +13,13 @@ Parameters:
       - local
       - dev
       - prod
+  # 引用符は付けない。SAM が '*' または 'https://...' の形に包む。
+  # ローカル（sam local）は既定の *。デプロイ後に CloudFront の URL へ絞る手順は docs/build.md §8。
+  CorsAllowOrigin:
+    Type: String
+    Default: "*"
+    Description: API の CORS AllowOrigin。ローカルは *。本番は https://xxxx.cloudfront.net（末尾スラッシュなし）
+    AllowedPattern: '^(\*|https://[A-Za-z0-9.-]+)$'
 
 Globals:
   Function:
@@ -34,7 +41,7 @@ Globals:
     Cors:
       AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
       AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-      AllowOrigin: "'*'"
+      AllowOrigin: !Sub "'${CorsAllowOrigin}'"
       MaxAge: "'600'"
 
 Resources:
@@ -112,8 +119,96 @@ Resources:
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-        AllowOrigin: "'*'"
+        AllowOrigin: !Sub "'${CorsAllowOrigin}'"
         MaxAge: "'600'"
+
+  ##########################################################################
+  # フロントエンド — 非公開 S3 + CloudFront（OAC）
+  # バケットのウェブサイト公開は使わない。読み取りは CloudFront のみ。
+  ##########################################################################
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: Application
+          Value: team-memo-app-aws
+        - Key: Stage
+          Value: !Ref StageName
+
+  FrontendOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "team-memo-app-frontend-oac-${StageName}"
+        Description: !Sub "OAC for team-memo frontend ${StageName}"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  FrontendDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub "team-memo-app frontend ${StageName}"
+        DefaultRootObject: index.html
+        HttpVersion: http2
+        PriceClass: PriceClass_200
+        Origins:
+          - Id: FrontendS3Origin
+            DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt FrontendOriginAccessControl.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+        DefaultCacheBehavior:
+          TargetOriginId: FrontendS3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          Compress: true
+          # CachingOptimized（AWS 管理ポリシー）
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+      Tags:
+        - Key: Application
+          Value: team-memo-app-aws
+        - Key: Stage
+          Value: !Ref StageName
+
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontRead
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${FrontendBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${FrontendDistribution}"
 
 Outputs:
   MemosApiUrl:
@@ -132,6 +227,18 @@ Outputs:
     Description: メモ CRUD Lambda の ARN
     Value: !GetAtt MemosFunction.Arn
 
+  FrontendUrl:
+    Description: 画面の URL（CloudFront、HTTPS）
+    Value: !Sub "https://${FrontendDistribution.DomainName}"
+
+  FrontendBucketName:
+    Description: 画面ファイルを置く非公開 S3 バケット名
+    Value: !Ref FrontendBucket
+
+  FrontendDistributionId:
+    Description: CloudFront ディストリビューション ID（キャッシュ無効化に使う）
+    Value: !Ref FrontendDistribution
+
   LocalDevHint:
     Description: ローカル開発時の起動ヒント（デプロイ成果物ではない）
-    Value: "Use DynamoDB Local + sam local start-api. Do not deploy until local E2E passes."
+    Value: "Use DynamoDB Local + sam local start-api. Deploy with docs/build.md section 8."

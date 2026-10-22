@@ -7,8 +7,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from repository import list_memos, put_memo, update_memo
-from response import error, success
+from repository import delete_memo, list_memos, put_memo, update_memo
+from response import error, no_content, success
 from validation import ValidationError, parse_json_body, validate_create_memo_body
 
 logger = logging.getLogger()
@@ -56,7 +56,6 @@ def _create_memo(event: dict[str, Any]) -> dict[str, Any]:
         "title": fields["title"],
         "body": fields["body"],
         "author": fields["author"],
-        "tags": fields["tags"],
         "createdAt": now,
         "updatedAt": now,
     }
@@ -101,6 +100,13 @@ def _update_memo(event: dict[str, Any], memo_id: str) -> dict[str, Any]:
     return success(200, updated)
 
 
+def _delete_memo(memo_id: str) -> dict[str, Any]:
+    deleted = delete_memo(memo_id)
+    if not deleted:
+        return error(404, "メモが見つかりません。")
+    return no_content()
+
+
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     method = _http_method(event)
     path = _normalize_path(event)
@@ -121,6 +127,9 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         # path が変でも pathParameters.memoId があれば更新として扱う（SAM Local 対策）
         if method == "PUT" and memo_id:
             return _update_memo(event, memo_id)
+        # path が変でも pathParameters.memoId があれば削除として扱う（SAM Local 対策）
+        if method == "DELETE" and memo_id:
+            return _delete_memo(memo_id)
 
         if path == "/memos" or path.startswith("/memos/") or memo_id:
             return error(405, "この操作はできません。")

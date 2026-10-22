@@ -5,7 +5,7 @@
   "headers": {
     "Content-Type": "application/json"
   },
-  "body": "{\"title\":\"スプリント振り返り\",\"body\":\"今週の決定事項を共有する。\",\"author\":\"yamada\",\"tags\":[\"sprint\",\"shared\"]}",
+  "body": "{\"title\":\"スプリント振り返り\",\"body\":\"今週の決定事項を共有する。\",\"author\":\"yamada\"}",
   "isBase64Encoded": false,
   "requestContext": {
     "stage": "local"

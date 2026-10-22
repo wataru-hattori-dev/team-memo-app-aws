@@ -7,9 +7,17 @@ import os
 from typing import Any
 
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger()
+
+# DynamoDB Local が止まっているとき、boto3 既定の 60 秒待ちで Lambda の 15 秒を超えないようにする。
+_LOCAL_CONFIG = Config(
+    connect_timeout=2,
+    read_timeout=2,
+    retries={"max_attempts": 1},
+)
 
 
 def _table_name() -> str:
@@ -41,7 +49,11 @@ def get_table():
             aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY") or "local",
             region_name=region,
         )
-        resource = session.resource("dynamodb", endpoint_url=endpoint_url)
+        resource = session.resource(
+            "dynamodb",
+            endpoint_url=endpoint_url,
+            config=_LOCAL_CONFIG,
+        )
         return resource.Table(table_name)
 
     resource = boto3.resource("dynamodb", region_name=region)
@@ -103,7 +115,6 @@ def update_memo(
         "title": fields["title"],
         "body": fields["body"],
         "author": fields["author"],
-        "tags": fields["tags"],
         "createdAt": existing["createdAt"],
         "updatedAt": updated_at,
     }
@@ -119,3 +130,22 @@ def update_memo(
             return None
         raise
     return item
+
+
+def delete_memo(memo_id: str) -> bool:
+    """存在確認後に削除する。不存在は False（呼び出し元で 404）。"""
+    if get_memo(memo_id) is None:
+        return False
+
+    table = get_table()
+    try:
+        table.delete_item(
+            Key={"memoId": memo_id},
+            ConditionExpression="attribute_exists(memoId)",
+        )
+    except ClientError as exc:
+        error_code = exc.response.get("Error", {}).get("Code", "")
+        if error_code == "ConditionalCheckFailedException":
+            return False
+        raise
+    return True

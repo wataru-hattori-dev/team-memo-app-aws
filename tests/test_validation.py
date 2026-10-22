@@ -12,7 +12,6 @@ def _valid_payload(**overrides: object) -> dict:
         "title": "スプリント振り返り",
         "body": "今週の決定事項を共有する。",
         "author": "yamada",
-        "tags": ["sprint"],
     }
     data.update(overrides)
     return data
@@ -23,7 +22,7 @@ def test_validate_create_memo_body_success() -> None:
     assert result["title"] == "スプリント振り返り"
     assert result["body"] == "今週の決定事項を共有する。"
     assert result["author"] == "yamada"
-    assert result["tags"] == ["sprint"]
+    assert "tags" not in result
 
 
 @pytest.mark.parametrize(
@@ -83,3 +82,34 @@ def test_field_too_long(field: str, label: str, max_len: int) -> None:
 def test_field_at_max_length_ok(field: str, max_len: int) -> None:
     result = validate_create_memo_body(_valid_payload(**{field: "a" * max_len}))
     assert result[field] == "a" * max_len
+
+
+def test_all_required_fields_missing_reports_all_errors() -> None:
+    with pytest.raises(ValidationError) as exc_info:
+        validate_create_memo_body({})
+    assert exc_info.value.message == (
+        "タイトルを入力してください。\n"
+        "本文を入力してください。\n"
+        "作成者を入力してください。"
+    )
+
+
+def test_all_required_fields_empty_reports_all_errors() -> None:
+    with pytest.raises(ValidationError) as exc_info:
+        validate_create_memo_body({"title": "  ", "body": "", "author": "\t"})
+    assert exc_info.value.message == (
+        "タイトルを入力してください。\n"
+        "本文を入力してください。\n"
+        "作成者を入力してください。"
+    )
+
+
+def test_multiple_field_errors_preserve_order() -> None:
+    with pytest.raises(ValidationError) as exc_info:
+        validate_create_memo_body(
+            _valid_payload(title="", body="ok", author="a" * 101)
+        )
+    assert exc_info.value.message == (
+        "タイトルを入力してください。\n"
+        "作成者は100文字以内で入力してください。"
+    )

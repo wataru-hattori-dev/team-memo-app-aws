@@ -8,7 +8,7 @@
   "pathParameters": {
     "memoId": "00000000-0000-0000-0000-000000000001"
   },
-  "body": "{\"title\":\"更新後タイトル\",\"body\":\"更新後本文\",\"author\":\"yamada\",\"tags\":[\"sprint\"]}",
+  "body": "{\"title\":\"更新後タイトル\",\"body\":\"更新後本文\",\"author\":\"yamada\"}",
   "isBase64Encoded": false,
   "requestContext": {
     "stage": "local"
